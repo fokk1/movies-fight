@@ -1,0 +1,27 @@
+.header {
+	margin-bottom: 20px;
+}
+
+.poster {
+	width: 60px;
+
+	margin-right: 10px;
+}
+
+.results {
+	max-height: 500px;
+	overflow-y: scroll;
+}
+
+.dropdown {
+	width: 100%;
+}
+
+.dropdown-item {
+	display: flex;
+	align-items: center;
+}
+
+a.dropdown-item {
+	white-space: normal;
+}
