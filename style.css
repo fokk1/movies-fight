@@ -29,3 +29,18 @@ a.dropdown-item {
 .media {
 	margin-bottom: 1.5rem;
 }
+
+.image img {
+	width: 200px;
+	height: 300px;
+}
+
+.columns {
+	margin: 0;
+}
+
+@media (max-width: 576px) {
+	.media {
+		display: block;
+	}
+}

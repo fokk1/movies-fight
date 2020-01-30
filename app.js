@@ -1,81 +1,97 @@
-const fetchData = async (searchItem) => {
-	const response = await axios.get('http://www.omdbapi.com/', {
-		params: {
-			apikey: 'd9d84edd',
-			s: searchItem
-		}
-	});
-
-	if (response.data.Error) {
-		return [];
-	}
-
-	return response.data.Search;
-};
-
-const root = document.querySelector('.autocomplete');
-root.innerHTML = `
-	<label><b>Search<b></label>
-	<input class="input" type="text" placeholder="Type a movie...">
-        <div class="dropdown">
-            <div class="dropdown-menu">
-                <div class="dropdown-content results"></div>
-			</div>
-		</div>
-`;
-
-const input = document.querySelector('input');
-const dropdown = document.querySelector('.dropdown');
-const results = document.querySelector('.results');
-
-const onInput = async (event) => {
-	const movies = await fetchData(event.target.value);
-
-	if (!movies.length) {
-		dropdown.classList.remove('is-active');
-		return;
-	}
-
-	results.innerHTML = '';
-	dropdown.classList.add('is-active');
-	for (let movie of movies) {
-		const option = document.createElement('a');
-		const imgSrc = movie.Poster === 'N/A' ? '' : movie.Poster;
-
-		option.classList.add('dropdown-item');
-		option.innerHTML = `
-		<img class="poster" src="${imgSrc}" />
-		<div>${movie.Title}, ${movie.Year}</div>
-	  `;
-		option.addEventListener('click', () => {
-			dropdown.classList.remove('is-active');
-			input.value = movie.Title;
-			onMovieSelect(movie);
+const config = {
+	async fetchData(searchItem) {
+		const response = await axios.get('http://www.omdbapi.com/', {
+			params: {
+				apikey: 'd9d84edd',
+				s: searchItem
+			}
 		});
 
-		results.append(option);
+		if (response.data.Error) {
+			return [];
+		}
+
+		return response.data.Search;
 	}
 };
 
-input.addEventListener('input', debounce(onInput, 500));
-
-document.addEventListener('click', (event) => {
-	if (!root.contains(event.target)) {
-		dropdown.classList.remove('is-active');
+complete({
+	...config,
+	root: document.querySelector('#left'), //left side completing
+	optionSelect(movie) {
+		onMovieSelect(movie, document.querySelector('#summary-left'), 'left');
 	}
 });
 
-const onMovieSelect = async (movie) => {
+complete({
+	...config,
+	root: document.querySelector('#right'), //right side completing
+	optionSelect(movie) {
+		onMovieSelect(movie, document.querySelector('#summary-right'), 'right');
+	}
+});
+
+let leftMovie;
+let rightMovie;
+const onMovieSelect = async (movie, summaryElement, side) => {
 	const response = await axios.get('http://www.omdbapi.com/', {
 		params: {
 			apikey: 'd9d84edd',
 			i: movie.imdbID
 		}
 	});
-	document.querySelector('#test').innerHTML = movieTemplate(response.data);
+	summaryElement.innerHTML = movieTemplate(response.data);
+
+	if (side === 'left') {
+		leftMovie = response.data;
+	} else {
+		rightMovie = response.data;
+	}
+
+	if (leftMovie && rightMovie) {
+		comparison();
+	}
+};
+
+const comparison = () => {
+	const leftSideStats = document.querySelectorAll('#summary-left .notification');
+	const rightSideStats = document.querySelectorAll('#summary-right .notification');
+
+	leftSideStats.forEach((leftStat, index) => {
+		const rightStat = rightSideStats[index];
+
+		const leftSideValue = parseInt(leftStat.dataset.value);
+		const rightSideValue = parseInt(rightStat.dataset.value);
+
+		if (rightSideValue > leftSideValue) {
+			leftStat.classList.remove('is-dark');
+			rightStat.classList.remove('is-dark');
+			rightStat.classList.add('is-success');
+			leftStat.classList.add('is-danger');
+		} else {
+			rightStat.classList.remove('is-dark');
+			leftStat.classList.remove('is-dark');
+			leftStat.classList.add('is-success');
+			rightStat.classList.add('is-danger');
+		}
+	});
 };
 
 const movieTemplate = (movieDetail) => {
+	const dollars = parseInt(movieDetail.BoxOffice.replace(/\$/g, '').replace(/,/g, ''));
+	const metascore = parseInt(movieDetail.Metascore);
+	const imdbRating = parseFloat(movieDetail.imdbRating);
+	const imdbVotes = parseInt(movieDetail.imdbVotes.replace(/,/g, ''));
+	const awards = movieDetail.Awards.split(' ').reduce((prev, word) => {
+		const value = parseInt(word);
+
+		if (isNaN(value)) {
+			return prev;
+		} else {
+			return prev + value;
+		}
+	}, 0);
+
 	return `
 	<div class="media">
 		<figure class="media-left">
@@ -91,25 +107,25 @@ const movieTemplate = (movieDetail) => {
 			</div>
 		</div>
 	</div>
-	<div class="notification is-dark">
-		<p class="titile">${movieDetail.Awards}</p>
-		<p class="subtitile">Awards</p>
+	<div data-value=${awards} class="notification is-dark">
+		<p class="title">${movieDetail.Awards}</p>
+		<p class="subtitle">Awards</p>
 	</div>
-	<div class="notification is-dark">
-		<p class="titile">${movieDetail.BoxOffice}</p>
-		<p class="subtitile">Box Office</p>
+	<div data-value=${dollars} class="notification is-dark">
+		<p class="title">${movieDetail.BoxOffice}</p>
+		<p class="subtitle">Box Office</p>
 	</div>
-	<div class="notification is-dark">
-		<p class="titile">${movieDetail.Metascore}</p>
-		<p class="subtitile">Metascore</p>
+	<div data-value=${metascore} class="notification is-dark">
+		<p class="title">${movieDetail.Metascore}</p>
+		<p class="subtitle">Metascore</p>
 	</div>
-	<div class="notification is-dark">
-		<p class="titile">${movieDetail.imdbRating}</p>
-		<p class="subtitile">IMDB Rating</p>
+	<div data-value=${imdbRating} class="notification is-dark">
+		<p class="title">${movieDetail.imdbRating}</p>
+		<p class="subtitle">IMDB Rating</p>
 	</div>
-	<div class="notification is-dark">
-		<p class="titile">${movieDetail.imdbVotes}</p>
-		<p class="subtitile">IMDB Votes</p>
+	<div data-value=${imdbVotes} class="notification is-dark">
+		<p class="title">${movieDetail.imdbVotes}</p>
+		<p class="subtitle">IMDB Votes</p>
 	</div>
 	`;
 };
